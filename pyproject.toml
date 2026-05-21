@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "AWI-ESM-v3.4.1-CAV-ICB"
+version = "0.1.0"
+description = "Iceberg calving plugin for AWI-ESM v3.4.1 with cavity support"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "pandas",
+    "xarray",
+    "netCDF4",
+    "tqdm",
+]
+
+[project.entry-points."esm_tools.plugins"]
+prep_icebergs = "plugin:prep_icebergs"
+apply_iceberg_calving_to_namelists = "plugin:apply_iceberg_calving_to_namelists"
+
+[tool.setuptools]
+py-modules = ["plugin", "icb_apply_distribution_functions"]
