@@ -10,9 +10,9 @@ The plugin distributes this mass flux across the calving fronts of the Antarctic
 
 ## Features
 
-- Reads FESOM freshwater flux (`fw.fesom.<year>.nc`) and calving output (`calving_AA.fesom.<year>.nc`)
-- Computes annual mean cavity melt and calving fluxes
-- Distributes iceberg calving across Antarctic drainage basins
+- Reads FESOM freshwater flux (`fw.fesom.<year>.nc`) and Antarctic calving (accumulated snow) output (`calving_AA.fesom.<year>.nc`)
+- Computes the residual between cavity melt and available Antarctic solid runoff
+- Distributes resulting iceberg calving across Antarctic drainage basins by calving front length in the respective basin
 - Generates icebergs with realistic size distributions (power-law scaling)
 - Supports reproducible iceberg generation via year-based seeding
 - Integrates seamlessly with `esm_tools` workflow
@@ -73,43 +73,17 @@ The plugin registers two entry points that are automatically called during the `
    - Counts new and existing icebergs
    - Sets `ib_num` parameter in `namelist.config`
 
-AWIESM3-v3.4.x get their prepcompute recipe from the oifs.yaml file.
-Add the following to the oifs.yaml file:
+AWIESM3-v3.4.x get their prepcompute recipe from the `oifs.yaml` file.
+Add the following lines to the end of the `esm_tools/configs/components/oifs/oifs.yaml` file:
 
-```yaml
-prepcompute_recipe:
-       - "compile_model"
-       - "_show_simulation_info"
-       - "create_new_files"
-       - "create_empty_folders"
-       - "prepare_coupler_files"
-       - "assemble"
-       - "log_used_files"
-       - "_write_finalized_config"
-       - "wait_for_iterative_coupling"
-       - "copy_files_to_thisrun"
-       - "write_env"
-       - "preprocess"
-       - "modify_namelists"
-       - "append_to_namelist"
-       - "modify_files"
-       - "copy_files_to_work"
-       - "report_missing_files"
-       - "compute_and_log_file_checksums"
-       # see https://github.com/esm-tools/esm_tools/discussions/774
-       # - "add_vcs_info"
-       #- "check_vcs_info_against_last_run"
-       - "database_entry"
-
-    # Conditionally add iceberg plugin steps when with_icb is enabled
-    choose_fesom.with_icb:
-        True:
-            add_prepcompute_recipe:
-                - "prep_icebergs"                       # Plugin
-                - "apply_iceberg_calving_to_namelists"  # Plugin
-    # this does not work as expected, solution is work in progress
-    #   - "postprocess"
-
+```
+# Conditionally add iceberg plugin steps when with_icb is enabled
+choose_fesom.with_icb:
+   True:
+      add_prepcompute_recipe:
+         - "prep_icebergs"                       # Plugin
+         - "apply_iceberg_calving_to_namelists"  # Plugin
+```
 ## Authors
 
 Finn Ole Heukamp, 2026
