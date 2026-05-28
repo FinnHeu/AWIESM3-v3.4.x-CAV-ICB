@@ -14,6 +14,7 @@ warnings.filterwarnings("ignore")
 
 from tqdm import tqdm
 from scipy.spatial import cKDTree
+from scipy.stats import vonmises
 
 class IcebergCalving:
     def __init__(self,
@@ -482,8 +483,8 @@ class IcebergCalving:
             af = self.mesh.voltri[int(felem[0])-1]
             if ai.sum() >= af:
                 print("*** FESOM element is full: ", felem[0])
-                print(" element area = ", af)
-                print(" iceberg area = ", ai)
+                #print(" element area = ", af)
+                #print(" iceberg area = ", ai)
                 full_elems_tmp.append(int(felem[0])-1)
         self.full_elems = full_elems_tmp
 
@@ -704,6 +705,58 @@ class IcebergCalving:
         
         self.df_agg["elems"] = elem_tmp
         self.df_agg["neigh."] = neigh_tmp
+
+    def _generate_calving_day(self, scaling_factor):
+        """
+        Generate a calving day (1-365) for an iceberg based on its scaling factor.
+        
+        For large icebergs (scaling_factor == 1): 
+            Uniform random distribution across all days.
+            
+        For smaller icebergs (scaling_factor > 1):
+            Austral summer-weighted distribution using von Mises distribution
+            centered on mid-January (day ~15), with higher probability during
+            December-February (austral summer).
+        
+        Parameters
+        ----------
+        scaling_factor : int
+            The scaling factor for the iceberg (1 = large, >1 = smaller)
+            
+        Returns
+        -------
+        int
+            Calving day of year (1-365)
+        """
+        if scaling_factor == 1:
+            # Large icebergs: uniform random distribution
+            return random.randint(1, 366)  # 1-365 inclusive
+        else:
+            # Smaller icebergs: austral summer intensification
+            # Use von Mises distribution centered on day 15 (mid-January)
+            # kappa controls concentration (higher = more peaked)
+            # kappa=1.5 gives moderate summer preference while still having some winter calving
+            
+            # Convert day of year to angle (0 = Jan 1, 2*pi = Dec 31)
+            # Center on day 15 (mid-January) = peak austral summer
+            mu_day = 15  # Peak calving around mid-January
+            mu_angle = (mu_day / 365.0) * 2 * np.pi
+            
+            # kappa controls how concentrated the distribution is
+            # Higher kappa = more concentrated around summer
+            # kappa=1.5 gives ~60% of calving in Nov-Feb, ~40% rest of year
+            kappa = 1.5
+            
+            # Draw from von Mises distribution
+            angle = vonmises.rvs(kappa, loc=mu_angle)
+            
+            # Convert angle back to day of year
+            day = int((angle % (2 * np.pi)) / (2 * np.pi) * 365) + 1
+            
+            # Ensure day is in valid range
+            day = max(1, min(365, day))
+            
+            return day
 
     def _create_icebergs_within_basin(self, df, idx):
     ######################################
@@ -1013,18 +1066,23 @@ class IcebergCalving:
                                 except:
                                     continue
                             
+                                # Generate calving day based on scaling factor
+                                calving_day = self._generate_calving_day(ib_elem.scaling)
+                                
                                 if ib_elems_loc.empty:
                                     ib_elems_loc = pd.DataFrame({"length": [ib_elem.length], 
                                                                 "depth": [ib_elem.depth],
                                                                 "scaling": [ib_elem.scaling],
                                                                 "lon": [lon], "lat": [lat],
-                                                                "felem": [felem]})
+                                                                "felem": [felem],
+                                                                "calving_day": [calving_day]})
                                 else:
                                     ib_elems_loc = pd.concat([ib_elems_loc, pd.DataFrame({"length": [ib_elem.length], 
                                                                                         "depth": [ib_elem.depth],
                                                                                         "scaling": [ib_elem.scaling],
                                                                                         "lon": [lon], "lat": [lat],
-                                                                                        "felem": [felem]})])
+                                                                                        "felem": [felem],
+                                                                                        "calving_day": [calving_day]})])
                                 pbar.update(1)
                     pbar.update(1)
                     break
@@ -1048,6 +1106,9 @@ class IcebergCalving:
             with open(os.path.join(self.icb_path, "icb_felem.dat"), fmode) as f:
                 np.savetxt(f, ib_elems_loc.felem.values, fmt='%d')
                 f.close()
+            with open(os.path.join(self.icb_path, "icb_calving_day.dat"), fmode) as f:
+                np.savetxt(f, ib_elems_loc.calving_day.values, fmt='%d')
+                f.close()
             
             # Print final summary
             self._print_iceberg_summary(iceberg_counts_per_basin)
@@ -1067,6 +1128,14 @@ class IcebergCalving:
             total_from_files = len(np.loadtxt(lon_file))
         except:
             total_from_files = "N/A"
+        
+        # Read calving days and scaling for statistics
+        try:
+            calving_days = np.loadtxt(os.path.join(self.icb_path, "icb_calving_day.dat")).astype(int)
+            scaling = np.loadtxt(os.path.join(self.icb_path, "icb_scaling.dat")).astype(int)
+            has_calving_stats = True
+        except:
+            has_calving_stats = False
         
         # Total flux
         total_flux_km3 = self.total_calving_flux.values * 1e-9
@@ -1091,6 +1160,28 @@ class IcebergCalving:
         print(f"  {'-' * 76}")
         print(f"  {'TOTAL':>6} | {sum(self.basin_weights):>8.4f} | {total_flux_km3:>14.2f} | {sum(iceberg_counts_per_basin.values()):>10} | {sum(len(self.df_agg.loc[bid, 'elems']) for bid in self.basin_ids):>12}")
         print(f"  {'-' * 76}")
+        
+        # Calving day statistics
+        if has_calving_stats and len(calving_days) > 0:
+            print(f"\n  CALVING DAY DISTRIBUTION:")
+            print(f"  {'-' * 76}")
+            
+            # Define austral summer as Nov-Feb (days 305-365 and 1-59)
+            is_summer = ((calving_days >= 305) | (calving_days <= 59))
+            
+            # Large icebergs (scaling == 1)
+            large_mask = scaling == 1
+            if large_mask.sum() > 0:
+                large_summer_pct = 100 * is_summer[large_mask].sum() / large_mask.sum()
+                print(f"    Large icebergs (scaling=1):   {large_mask.sum():>6} total, {large_summer_pct:>5.1f}% in austral summer (Nov-Feb)")
+            
+            # Small icebergs (scaling > 1)
+            small_mask = scaling > 1
+            if small_mask.sum() > 0:
+                small_summer_pct = 100 * is_summer[small_mask].sum() / small_mask.sum()
+                print(f"    Small icebergs (scaling>1):   {small_mask.sum():>6} total, {small_summer_pct:>5.1f}% in austral summer (Nov-Feb)")
+            
+            print(f"  {'-' * 76}")
         
         print(f"\n  Output directory: {self.icb_path}")
         print("=" * 80)
