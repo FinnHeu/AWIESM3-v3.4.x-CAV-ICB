@@ -26,11 +26,11 @@ from icb_apply_distribution_functions import IcebergCalving
 
 # Hardcoded paths
 MESH_DIR = "/work/ab0995/a270186/model_inputs/fesom2/mesh/DARS2cav/"
-FW_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.1-CAV-ICB/test/data/fw.fesom.1600.nc"
-CALVING_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.1-CAV-ICB/test/data/calving_AA.fesom.1600.nc"
+FW_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/data/fw.fesom.1600.nc"
+CALVING_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/data/calving_AA.fesom.1600.nc"
 BASIN_FILE = "/home/a/a270186/esm_tools/plugins/basins/basins_antarctica.nc"
 SEED_YEAR = 1600
-OUTPUT_DIR = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.1-CAV-ICB/test/output/"
+OUTPUT_DIR = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/output/"
 
 
 def verify_paths():
@@ -80,10 +80,10 @@ def run_iceberg_test(output_dir):
         icb_path=output_dir,
         latest_restart_file="",  # No restart for test
         abg=[50, 15, -90],
-        scaling_factor=[100, 50, 10, 1, 1, 1],
+        scaling_factor=[50, 25, 10, 1, 1, 1],
         seed=1000,
         bcavities=True,
-        ibareamax=400,
+        ibareamax=100, #km2
         domain="SH",
         basin_file=BASIN_FILE,
         fw_file=FW_FILE,

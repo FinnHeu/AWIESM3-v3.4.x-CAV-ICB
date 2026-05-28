@@ -13,6 +13,9 @@ def prep_icebergs(config):
     Inputs:
     - config: esm_tools configuration dictionary
     """
+
+    print("\n=== PREPARE ICEBERGS ===\n")
+
     # get config values for iceberg usage
     with_icb   = config["fesom"].get("with_icb", False)
     run_number = config["general"].get("run_number", 0)
@@ -54,6 +57,7 @@ def update_icebergs(config):
     scaling_factor = config["fesom"].get("scaling_factor", [1, 1, 1, 1, 1, 1])
     bcavities = config["fesom"].get("use_cav", True)
     icb_path = config["general"]["thisrun_work_dir"]
+    ibareamax = config["fesom"].get("ibareamax", 400)
     
     # Get previous year for reading previous year's output files
     prev_date = config["general"]["prev_date"]
@@ -66,6 +70,15 @@ def update_icebergs(config):
     fw_file = os.path.join(outdata_fesom_dir, f"fw.fesom.{prev_year}.nc")
     calving_file = os.path.join(outdata_fesom_dir, f"calving_AA.fesom.{prev_year}.nc")
     
+    # print all inputs for sanity check
+    print(f"*---> Inputs:")
+    print(f" * mesh_dir: {mesh_dir}")
+    print(f" * basin_file: {basin_file}")
+    print(f" * icb_restart_file: {icb_restart_file}")
+    print(f" * scaling_factor: {scaling_factor}")
+    print(f" * bcavities: {bcavities}")
+    print(f" * icb_path: {icb_path}")
+    print(f" * ibareamax: {ibareamax}")
     print(f" * prev_year: {prev_year}")
     print(f" * fw_file: {fw_file}")
     print(f" * calving_file: {calving_file}")
@@ -88,7 +101,7 @@ def update_icebergs(config):
                         scaling_factor=scaling_factor,
                         seed=seed_year, 
                         bcavities=bcavities, 
-                        ibareamax=400,
+                        ibareamax=ibareamax,
                         domain="SH",
                         basin_file=basin_file,               # basin file ?needed?
                         #calving_basin_id_file=fesom_basin_id_file,       # file containing the basin IDs for solid runoff/enthalpy on fesom grid
@@ -133,6 +146,10 @@ def apply_iceberg_calving_to_namelists(config):
             else:
                 print("\n*---> No iceberg.restart.ISM file found, assuming no old icebergs")
                 num_old_icebergs = 0
+
+        with open(os.path.join(icb_path, "num_non_melted_icb_file"), 'w') as f:
+            f.write(str(num_old_icebergs))
+            print(f"* Created num_non_melted_icb_file with {num_old_icebergs} non-melted icebergs")
 
     # Open the namelist.config in the current work directory...
     nml_path = os.path.join(icb_path, "namelist.config")

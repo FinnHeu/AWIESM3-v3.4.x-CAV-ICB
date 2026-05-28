@@ -28,12 +28,6 @@ cd /path/to/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB
 pip install -e .
 ```
 
-### Verify installation
-
-```bash
-pip show AWI-ESM-v3.4.x-CAV-ICB
-```
-
 ## Dependencies
 
 - `numpy`

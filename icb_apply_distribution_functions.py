@@ -34,7 +34,6 @@ class IcebergCalving:
         random.seed(seed)
        
         print(" * seed = ", seed)
-        print(" * cavity = ", str(bcavities))
         
         # Store input type for later processing
         self.icb_path = icb_path
@@ -569,20 +568,23 @@ class IcebergCalving:
 
     def _find_calving_front_elements(self):
         """
-        Find all ocean elements that have at least one neighboring cavity element, per basin.
-        These are the calving front elements where icebergs should be seeded.
+        Find ocean elements suitable for iceberg seeding near the calving front.
+        
+        Strategy:
+        1. Find calving front elements (ocean elements adjacent to cavity elements)
+        2. Find all elements sharing 1-2 nodes with calving front elements
+        3. Keep only those that are pure ocean elements (not cavity)
+        
+        This gives us "second row" elements that are safely in open ocean,
+        avoiding FESOM's rejection of elements with any cavity_depth != 0 nodes.
         
         Ocean elements: cavity_elvls == 1
         Cavity elements: cavity_elvls > 1
         
-        Uses elems_of_node approach: for each node, find which elements contain it,
-        then check if any ocean element shares a node with a cavity element.
-        
-        Caches the calving front elements and elems_of_node to mesh folder.
-        
-        Modifies self.df_agg to contain the calving front elements per basin.
+        Modifies self.df_agg to contain the seeding elements per basin.
         """
-        cache_file = os.path.join(self.mesh_path, "elem_calv_front.npz")
+        # Use new cache file name since logic changed
+        cache_file = os.path.join(self.mesh_path, "elem_icb_seeding.npz")
         
         # Read raw cavity levels (1 = ocean, > 1 = cavity)
         lev_cav = pd.read_csv(self.cavity_elvls_file, names=["cavity"], sep='\s+')['cavity'].values
@@ -598,14 +600,16 @@ class IcebergCalving:
         
         # Try to load from cache
         if os.path.exists(cache_file):
-            print(f" * Loading calving front elements from cache: {cache_file}")
+            print(f" * Loading iceberg seeding elements from cache: {cache_file}")
             data = np.load(cache_file, allow_pickle=True)
             all_calving_front = data['all_calving_front']
+            all_seeding_elems = data['all_seeding_elems']
             elems_of_node = data['elems_of_node']
             print(f"   Total elements: {nelems}, Ocean: {is_ocean.sum()}, Cavity: {is_cavity.sum()}")
-            print(f"   Loaded {len(all_calving_front)} calving front elements from cache")
+            print(f"   Calving front elements: {len(all_calving_front)}")
+            print(f"   Iceberg seeding elements: {len(all_seeding_elems)}")
         else:
-            print(" * Finding calving front elements (ocean elements adjacent to cavities)...")
+            print(" * Finding calving front and iceberg seeding elements...")
             print(f"   Total elements: {nelems}, Ocean: {is_ocean.sum()}, Cavity: {is_cavity.sum()}")
             
             # Build elems_of_node: for each node, list of elements containing that node
@@ -616,8 +620,7 @@ class IcebergCalving:
                 elems_of_node[n2[eidx]].append(eidx)
                 elems_of_node[n3[eidx]].append(eidx)
             
-            # Find all ocean elements that are adjacent to cavity elements
-            # An ocean element is adjacent to cavity if any of its nodes is also in a cavity element
+            # Step 1: Find calving front elements (ocean elements adjacent to cavity elements)
             ocean_near_cavity = np.zeros(nelems, dtype=bool)
             for eidx in range(nelems):
                 if is_ocean[eidx]:
@@ -628,11 +631,31 @@ class IcebergCalving:
                             break
             
             all_calving_front = np.where(ocean_near_cavity)[0]
-            print(f"   Total calving front elements: {len(all_calving_front)}")
+            calving_front_set = set(all_calving_front)
+            print(f"   Calving front elements: {len(all_calving_front)}")
+            
+            # Step 2: Find elements sharing 1-2 nodes with calving front elements
+            # These are potential seeding elements
+            potential_seeding = set()
+            for cf_eidx in all_calving_front:
+                cf_nodes = (n1[cf_eidx], n2[cf_eidx], n3[cf_eidx])
+                for node in cf_nodes:
+                    # All elements containing this node
+                    for neighbor_eidx in elems_of_node[node]:
+                        # Skip if it's a calving front element itself
+                        if neighbor_eidx not in calving_front_set:
+                            potential_seeding.add(neighbor_eidx)
+            
+            # Step 3: Keep only pure ocean elements (not cavity)
+            all_seeding_elems = np.array([e for e in potential_seeding if is_ocean[e]], dtype=np.int64)
+            print(f"   Iceberg seeding elements (ocean, not calving front): {len(all_seeding_elems)}")
             
             # Save to cache
-            print(f" * Saving calving front elements to cache: {cache_file}")
-            np.savez(cache_file, all_calving_front=all_calving_front, elems_of_node=np.array(elems_of_node, dtype=object))
+            print(f" * Saving iceberg seeding elements to cache: {cache_file}")
+            np.savez(cache_file, 
+                     all_calving_front=all_calving_front, 
+                     all_seeding_elems=all_seeding_elems,
+                     elems_of_node=np.array(elems_of_node, dtype=object))
         
         # Build node-to-basin mapping for fast lookup
         # self.basins1D was created by _find_basins() for each cavity node
@@ -641,35 +664,43 @@ class IcebergCalving:
         for i, node_idx in enumerate(cavity_nodes_all):
             node_to_basin[node_idx] = self.basins1D[i]
         
-        # Assign each calving front element to basin(s) based on adjacent cavity elements
-        # A calving front element belongs to basin B if any node of that element
-        # is also in a cavity element that belongs to basin B
-        calving_front_by_basin = {basin_id: set() for basin_id in self.basin_ids}
-        
+        # Build calving front to basin mapping first
+        # A calving front element belongs to basin B if it's adjacent to a cavity element of basin B
+        calving_front_to_basins = {eidx: set() for eidx in all_calving_front}
         for eidx in all_calving_front:
             elem_nodes = (n1[eidx], n2[eidx], n3[eidx])
             for node in elem_nodes:
-                # Find cavity elements containing this node
                 for cav_eidx in elems_of_node[node]:
                     if is_cavity[cav_eidx]:
-                        # Get basin from nodes of cavity element
                         cav_nodes = (n1[cav_eidx], n2[cav_eidx], n3[cav_eidx])
                         for cav_node in cav_nodes:
                             if cav_node in node_to_basin:
-                                basin_id = node_to_basin[cav_node]
-                                if basin_id in calving_front_by_basin:
-                                    calving_front_by_basin[basin_id].add(eidx)
+                                calving_front_to_basins[eidx].add(node_to_basin[cav_node])
         
-        # For each basin, collect calving front elements
+        # Assign seeding elements to basins based on which calving front elements they neighbor
+        seeding_by_basin = {basin_id: set() for basin_id in self.basin_ids}
+        calving_front_set = set(all_calving_front)
+        
+        for seed_eidx in all_seeding_elems:
+            seed_nodes = (n1[seed_eidx], n2[seed_eidx], n3[seed_eidx])
+            for node in seed_nodes:
+                for neighbor_eidx in elems_of_node[node]:
+                    if neighbor_eidx in calving_front_to_basins:
+                        # This seeding element neighbors a calving front element
+                        for basin_id in calving_front_to_basins[neighbor_eidx]:
+                            if basin_id in seeding_by_basin:
+                                seeding_by_basin[basin_id].add(seed_eidx)
+        
+        # For each basin, collect seeding elements
         elem_tmp = []
         neigh_tmp = []
         
         for basin_idx in self.basin_ids:
-            calving_front_list = sorted(list(calving_front_by_basin[basin_idx]))
-            elem_tmp.append(calving_front_list)
-            neigh_tmp.append([])  # No neighbors needed for calving front
+            seeding_list = sorted(list(seeding_by_basin[basin_idx]))
+            elem_tmp.append(seeding_list)
+            neigh_tmp.append([])  # No neighbors needed
             
-            print(f"   Basin {basin_idx}: {len(calving_front_list)} calving front elements")
+            print(f"   Basin {basin_idx}: {len(seeding_list)} iceberg seeding elements")
         
         self.df_agg["elems"] = elem_tmp
         self.df_agg["neigh."] = neigh_tmp
