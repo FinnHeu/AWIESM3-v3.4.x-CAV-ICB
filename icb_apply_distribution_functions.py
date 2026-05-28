@@ -472,20 +472,30 @@ class IcebergCalving:
         self.cavity_flags = tmp[tmp>1].notna()
 
     def _get_full_cells(self):
+        """
+        Identify mesh elements that already host an iceberg from the restart file.
+        
+        FESOM only allows one iceberg per mesh element (cell_saturation=4), so any element containing
+        an existing iceberg must be excluded from seeding new icebergs.
+        
+        Column 18 in the restart file contains the FESOM element ID (1-indexed).
+        """
         df = pd.read_csv(self.latest_restart_file, header=None, delim_whitespace=True)
-        df_group  = df[[1,2,18,24]].groupby(18)
+        
+        # Get unique element IDs from column 18 (1-indexed in restart file)
+        occupied_elems = df[18].unique()
+        
+        # Filter valid element IDs and convert to 0-indexed
         full_elems_tmp = []
-
-        for felem in df_group:
-            if ((int(felem[0])==0) or ((int(felem[0])-1>len(self.mesh.voltri)))):
+        for felem in occupied_elems:
+            felem_int = int(felem)
+            # Skip invalid element IDs (0 or out of range)
+            if felem_int == 0 or felem_int > len(self.mesh.voltri):
                 continue
-            ai = felem[1][1] * felem[1][2] * felem[1][24]
-            af = self.mesh.voltri[int(felem[0])-1]
-            if ai.sum() >= af:
-                print("*** FESOM element is full: ", felem[0])
-                #print(" element area = ", af)
-                #print(" iceberg area = ", ai)
-                full_elems_tmp.append(int(felem[0])-1)
+            # Convert to 0-indexed
+            full_elems_tmp.append(felem_int - 1)
+        
+        print(f" * Found {len(full_elems_tmp)} occupied elements (excluded from seeding)")
         self.full_elems = full_elems_tmp
 
     def _remove_cavities(self):
