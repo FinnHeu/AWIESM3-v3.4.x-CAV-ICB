@@ -1025,7 +1025,7 @@ class IcebergCalving:
 
                     ##############################################################
                     # exclude coastal nodes (and full cells)
-                    elems_to_drop = self.full_elems
+                    elems_to_drop = list(self.full_elems)  # Copy to avoid modifying original
                 
                     for felem in felems:
                         nodes = self.elem2d.loc[felem].values
@@ -1114,11 +1114,25 @@ class IcebergCalving:
                 np.savetxt(f, ib_elems_loc.scaling.values, fmt='%d')
                 f.close()
             with open(os.path.join(self.icb_path, "icb_felem.dat"), fmode) as f:
-                np.savetxt(f, ib_elems_loc.felem.values, fmt='%d')
+                np.savetxt(f, ib_elems_loc.felem.values + 1, fmt='%d')
                 f.close()
             with open(os.path.join(self.icb_path, "icb_calving_day.dat"), fmode) as f:
                 np.savetxt(f, ib_elems_loc.calving_day.values, fmt='%d')
                 f.close()
+            
+            # Verify no new iceberg is seeded in an already occupied element
+            if hasattr(self, 'full_elems') and len(self.full_elems) > 0:
+                new_elems = set(ib_elems_loc.felem.values)
+                occupied_elems = set(self.full_elems)
+                conflicts = new_elems.intersection(occupied_elems)
+                if len(conflicts) == 0:
+                    print(f" * VERIFICATION PASSED: No new icebergs seeded in occupied elements")
+                    print(f"   (checked {len(new_elems)} new elements against {len(occupied_elems)} occupied elements)")
+                else:
+                    # Convert to 1-indexed for reporting (FESOM convention)
+                    conflicts_1idx = [e + 1 for e in conflicts]
+                    print(f" * WARNING: {len(conflicts)} new icebergs seeded in occupied elements!")
+                    print(f"   Conflicting elements (1-indexed): {conflicts_1idx[:10]}{'...' if len(conflicts) > 10 else ''}")
             
             # Print final summary
             self._print_iceberg_summary(iceberg_counts_per_basin)
