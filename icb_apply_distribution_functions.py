@@ -15,6 +15,7 @@ warnings.filterwarnings("ignore")
 from tqdm import tqdm
 from scipy.spatial import cKDTree
 from scipy.stats import vonmises
+from datetime import datetime
 
 class IcebergCalving:
     def __init__(self,
@@ -64,6 +65,7 @@ class IcebergCalving:
         self.thick_max = 0.25
         self.depth = self.thick * 7/8
         self.height = self.thick - self.depth
+        self.seed = seed
 
 
         self.domain    = domain
@@ -207,13 +209,19 @@ class IcebergCalving:
         n_time = len(self.ds_fw.time)
         print(f" * Number of timesteps in file: {n_time}")
         
-        if n_time > 1:
-            # Monthly/Daily/... means - compute annual mean
-            print(f" * Detected {n_time} timesteps, computing annual mean")
-            self.fw_annual_mean = self.fw_field.mean(dim='time')
+        if n_time == 12:
+            # Monthly means - compute annual mean with weights for seconds of the month
+            print(f" * Detected {n_time} timesteps, computing annual mean based on weighted seconds per months")
+            spm = seconds_per_month(self.seed)
+            self.ds_fw['spm'] = (('time'), spm)
+            self.fw_annual_mean = self.fw_field.weighted(self.ds_fw['spm']).mean(dim='time')
         elif n_time == 1:
             # Annual mean - use directly
             print(" * Detected annual data, using directly")
+            self.fw_annual_mean = self.fw_field.squeeze(dim='time')
+        elif (n_time == 365) | (n_time == 366):
+            # Daily mean - use directly
+            print(" * Detected daily data, using directly")
             self.fw_annual_mean = self.fw_field.squeeze(dim='time')
         else:
             print(f" * WARNING: unexpected number of timesteps ({n_time}), using mean over all")
@@ -1247,9 +1255,39 @@ def PointTriangle_distance(lon0, lat0, lon1, lat1, lon2, lat2, lon3, lat3):
 
     return [p1, p2, p3], ind[0][0]
 
+def seconds_per_month(years):
+    """
+    Return the number of seconds in each month for given year(s).
 
+    Parameters
+    ----------
+    years : int or iterable of int
+        Year or list of years (e.g., 1980 or [1980, 1981, 1982])
 
-
+    Returns
+    -------
+    numpy array
+        Array of seconds in each month
+    """
+    
+    # Accept single year or iterable
+    if isinstance(years, int):
+        years = [years]
+    
+    secs = []
+    
+    for y in years:
+        for m in range(1, 13):
+            # start of month
+            start = datetime(y, m, 1)
+            # start of next month (handle December→January rollover)
+            if m == 12:
+                end = datetime(y + 1, 1, 1)
+            else:
+                end = datetime(y, m + 1, 1)
+            secs.append((end - start).total_seconds())
+    
+    return np.array(secs)
 
 
 
