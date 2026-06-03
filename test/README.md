@@ -21,6 +21,7 @@ This directory contains an offline test for the iceberg calving plugin that gene
   - powerlaw
   - numexpr
   - tqdm
+  - scipy
 
 ## Running the Test
 
@@ -60,13 +61,14 @@ python test_iceberg_plugin.py
    - Generates iceberg distribution using power-law scaling
    - Writes output files to a temporary directory
 
-4. **Verifies outputs**: Checks that all 6 iceberg output files are created:
+4. **Verifies outputs**: Checks that all 7 iceberg output files are created:
    - `icb_longitude.dat` - Longitude positions
    - `icb_latitude.dat` - Latitude positions  
    - `icb_length.dat` - Iceberg lengths (m)
    - `icb_height.dat` - Iceberg heights/depths (m)
    - `icb_scaling.dat` - Scaling factors (number of icebergs per entry)
    - `icb_felem.dat` - FESOM element indices
+   - `icb_calving_day.dat` - Calving day of year (1-365)
 
 ## Output
 
@@ -77,6 +79,22 @@ On successful completion, the test preserves the output directory and prints its
 ```
 
 You can inspect the generated iceberg files there.
+
+## Calving Day Seasonal Cycle
+
+The plugin generates calving days for each iceberg with different distributions based on iceberg size:
+
+### Large icebergs (scaling factor = 1)
+- **Uniform random distribution** across all days (1-365)
+- Represents the 3 largest size classes that calve year-round
+
+### Small icebergs (scaling factor > 1)
+- **Austral summer-weighted distribution** using von Mises (circular normal) distribution
+- Centered on day 15 (mid-January) with κ=1.5
+- Results in ~60% of small icebergs calving during austral summer (Nov-Feb)
+- Represents smaller, more seasonal calving events
+
+The von Mises distribution is ideal for cyclic data like day-of-year, ensuring smooth wrap-around at year boundaries.
 
 ## Troubleshooting
 

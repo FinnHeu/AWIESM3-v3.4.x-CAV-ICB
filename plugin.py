@@ -30,7 +30,14 @@ def prep_icebergs(config):
             for f in icb_files:
                 shutil.copy(f, config["general"]["thisrun_work_dir"])
             print(f"* using iceberg initial files from: {icb_ini_dir}")
-        # else ...
+            # also copy the iceberg.restart.ISM file from icb_ini_dir if it exists for a hot restart
+            icb_restart_file = glob.glob(os.path.join(icb_ini_dir, "iceberg.restart.ISM"))
+            if os.path.exists(icb_restart_file[0]):
+                shutil.copy(icb_restart_file[0], config["general"]["thisrun_work_dir"])
+                print(f"* using iceberg restart file from: {icb_ini_dir}")
+            else:
+                print(f"* no iceberg restart file found in: {icb_ini_dir}")
+
         else:
             print("* not first year of simulation")    
             print(f"* updating icebergs for run number: {run_number}")
@@ -133,19 +140,15 @@ def apply_iceberg_calving_to_namelists(config):
             num_new_icebergs = sum(1 for line in f)
             print(f"* Number of new icebergs: {num_new_icebergs}")
 
-        if run_number == 1:
-            # there are no old icebergs
-            num_old_icebergs = 0
+        if os.path.isfile(os.path.join(icb_path, "iceberg.restart.ISM")):
+            # Count the lines with data in iceberg.restart.ISM file
+            print("\n*---> Counting old icebergs...")
+            with open(os.path.join(icb_path, "iceberg.restart.ISM"), "r") as f:
+                num_old_icebergs = sum(1 for line in f)
+            print(f"* Number of old icebergs: {num_old_icebergs}")
         else:
-            if os.path.isfile(os.path.join(icb_path, "iceberg.restart.ISM")):
-                # Count the lines with data in iceberg.restart.ISM file
-                print("\n*---> Counting old icebergs...")
-                with open(os.path.join(icb_path, "iceberg.restart.ISM"), "r") as f:
-                    num_old_icebergs = sum(1 for line in f)
-                print(f"* Number of old icebergs: {num_old_icebergs}")
-            else:
-                print("\n*---> No iceberg.restart.ISM file found, assuming no old icebergs")
-                num_old_icebergs = 0
+            print("\n*---> No iceberg.restart.ISM file found, assuming no old icebergs")
+            num_old_icebergs = 0
 
         with open(os.path.join(icb_path, "num_non_melted_icb_file"), 'w') as f:
             f.write(str(num_old_icebergs))
