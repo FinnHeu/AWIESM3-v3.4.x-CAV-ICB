@@ -31,7 +31,7 @@ CALVING_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/da
 RESTART_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/output/iceberg.restart.ISM"
 BASIN_FILE = "/home/a/a270186/esm_tools/plugins/basins/basins_antarctica.nc"
 SEED_YEAR = 1600
-OUTPUT_DIR = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/output/"
+OUTPUT_DIR = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/output/test/"
 
 
 def verify_paths():

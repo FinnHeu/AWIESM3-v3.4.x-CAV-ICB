@@ -31,9 +31,9 @@ def prep_icebergs(config):
                 shutil.copy(f, config["general"]["thisrun_work_dir"])
             print(f"* using iceberg initial files from: {icb_ini_dir}")
             # also copy the iceberg.restart.ISM file from icb_ini_dir if it exists for a hot restart
-            icb_restart_file = glob.glob(os.path.join(icb_ini_dir, "iceberg.restart.ISM"))
-            if os.path.exists(icb_restart_file[0]):
-                shutil.copy(icb_restart_file[0], config["general"]["thisrun_work_dir"])
+            icb_restart_file = os.path.join(icb_ini_dir, "iceberg.restart.ISM")
+            if os.path.exists(icb_restart_file):
+                shutil.copy(icb_restart_file, config["general"]["thisrun_work_dir"])
                 print(f"* using iceberg restart file from: {icb_ini_dir}")
             else:
                 print(f"* no iceberg restart file found in: {icb_ini_dir}")

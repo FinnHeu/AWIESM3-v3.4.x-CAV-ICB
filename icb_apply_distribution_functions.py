@@ -343,8 +343,8 @@ class IcebergCalving:
         self.n_basins = len(unique_basins)
         self.basin_ids = unique_basins.astype(int)
         
-        print(f"   Number of basins: {self.n_basins}")
-        print(f"   Basin IDs: {self.basin_ids}")
+        print(f" * Number of basins: {self.n_basins}")
+        print(f" * Basin IDs: {self.basin_ids}")
         print(f" * Total iceberg flux: {self.total_calving_flux.values * 1e-9:.2f} km3/y (ice)") 
         
     def _get_fesom_coords(self):
@@ -490,6 +490,9 @@ class IcebergCalving:
         """
         df = pd.read_csv(self.latest_restart_file, header=None, delim_whitespace=True)
         
+        # Check for multiple icebergs in same grid element
+        self._check_multiple_icebergs_in_element(df)
+        
         # Get unique element IDs from column 18 (1-indexed in restart file)
         occupied_elems = df[18].unique()
         
@@ -505,6 +508,41 @@ class IcebergCalving:
         
         print(f" * Found {len(full_elems_tmp)} occupied elements (excluded from seeding)")
         self.full_elems = full_elems_tmp
+
+    def _check_multiple_icebergs_in_element(self, df):
+        """
+        Check if multiple icebergs are hosted by the same grid element in the restart file.
+        
+        Column 18 in the restart file contains the FESOM element ID (1-indexed).
+        If multiple icebergs share the same element ID, issue a warning with details.
+        """
+        print(" \n*---> Checking iceberg restart for multiple icebergs in one element")
+        
+        # Count icebergs per element
+        element_counts = df[18].value_counts()
+        multiple_iceberg_elements = element_counts[element_counts > 1]
+        
+        if len(multiple_iceberg_elements) > 0:
+            for element_id in multiple_iceberg_elements.index:
+                count = multiple_iceberg_elements[element_id]
+                print(" ***********************************************")
+                print(f" * WARNING: Multiple icebergs hosted by grid element {element_id}*")
+                print(" ***********************************************")
+                
+                # Find all icebergs in this element and print their details
+                icebergs_in_element = df[df[18] == element_id]
+                print(f" * Details for element {element_id} ({count} icebergs):")
+                print(" * Row | Col1 | Col2 | Col3 | Col4 | Col5 | Col6 | Col7 | Col8 | Col9 | Col10| Col11| Col12| Col13| Col14| Col15| Col16| Col17| Col18| Col19| Col20")
+                print(" *-----|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------")
+                
+                for idx, (row_idx, iceberg) in enumerate(icebergs_in_element.iterrows(), 1):
+                    # Format the iceberg data for display
+                    row_data = [f"{int(iceberg[i]):5}" if i < len(iceberg) and iceberg[i] != 0 else "    " for i in range(20)]
+                    print(f" *{idx:4} | {' | '.join(row_data)}")
+                
+                print(" ***********************************************")
+        else:
+            print(" * No multiple icebergs found in same grid element")
 
     def _remove_cavities(self):
         print(" *--> remove cavity elements")
@@ -1129,6 +1167,7 @@ class IcebergCalving:
                 f.close()
             
             # Verify no new iceberg is seeded in an already occupied element
+            print("\n *---> Verify iceberg locations against restart")
             if hasattr(self, 'full_elems') and len(self.full_elems) > 0:
                 new_elems = set(ib_elems_loc.felem.values)
                 occupied_elems = set(self.full_elems)
