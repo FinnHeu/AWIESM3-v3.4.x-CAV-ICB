@@ -60,7 +60,7 @@ def update_icebergs(config):
     
     mesh_dir = config["fesom"]["mesh_dir"]
     basin_file = config["fesom"].get("basin_file", "")
-    icb_restart_file = config["fesom"]["restart_in_sources"].get("icb_restart_ISM", "")
+    icb_restart_file = os.path.join(config["general"]["thisrun_work_dir"], "iceberg.restart.ISM") #config["fesom"]["restart_in_sources"].get("icb_restart_ISM", "")
     scaling_factor = config["fesom"].get("scaling_factor", [1, 1, 1, 1, 1, 1])
     bcavities = config["fesom"].get("use_cav", True)
     icb_path = config["general"]["thisrun_work_dir"]
@@ -166,4 +166,35 @@ def apply_iceberg_calving_to_namelists(config):
 
     print("\n*---> Updating icebergs done!")
 
+    return config
+
+def preserve_iceberg_restart(config):
+    """
+    Make a copy of the iceberg.restart.ISM file in the run*/work/ directory in /restarts/fesom 
+    with the datestamp of the previous leg (iceberg.restart.ISM.<prev_year>)
+    """
+
+    # Get previous year for reading previous year's output files
+    prev_date = config["general"]["prev_date"]
+    prev_year = prev_date.year if hasattr(prev_date, 'year') else int(str(prev_date)[:4])
+    
+    # Get current work directory
+    work_path = config["general"]["thisrun_work_dir"]
+    restart_path = config["general"]["restart_dir"]
+    
+    # Copy iceberg.restart.ISM from /work to /restarts/fesom with previous year timestamp
+    src_file = os.path.join(work_path, "iceberg.restart.ISM")
+    dest_file = os.path.join(restart_path, f"fesom/iceberg.restart.ISM.{prev_year}")
+    
+    if os.path.exists(src_file):
+        print(f"\n*---> Preserving iceberg.restart.ISM for previous year {prev_year}")
+        print(f"* Source: {src_file}")
+        print(f"* Destination: {dest_file}")
+        
+        # Copy the file
+        shutil.copy2(src_file, dest_file)
+        print(f"* File copied successfully")
+    else:
+        print(f"\n*---> No iceberg.restart.ISM file found, skipping preservation")
+    
     return config

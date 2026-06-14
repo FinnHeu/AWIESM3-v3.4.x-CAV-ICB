@@ -10,6 +10,7 @@ import numexpr as ne
 import pyfesom2 as pf
 import powerlaw
 import warnings
+import hdf5plugin
 warnings.filterwarnings("ignore")
 
 from tqdm import tqdm
@@ -200,7 +201,8 @@ class IcebergCalving:
         """
         print(" \n*---> Reading FESOM freshwater flux file and computing annual mean")
         print(f" * Opening FESOM freshwater flux file: {self.fw_file}")
-        self.ds_fw = xr.open_dataset(self.fw_file)
+        # Use engine to avoid NetCDF filter issues
+        self.ds_fw = xr.open_dataset(self.fw_file, engine='h5netcdf')
         
         # Get the fw variable
         self.fw_field = self.ds_fw['fw']
@@ -256,7 +258,7 @@ class IcebergCalving:
         """
         print(" \n*---> Reading FESOM Antarctic calving flux file and computing annual mean")
         print(f" * Opening FESOM calving flux file: {self.calving_file}")
-        self.ds_calving = xr.open_dataset(self.calving_file)
+        self.ds_calving = xr.open_dataset(self.calving_file, engine='h5netcdf')
         
         # Get the runoff_solid variable
         self.calving_field = self.ds_calving['calving_AA']
@@ -299,7 +301,7 @@ class IcebergCalving:
             print(" ***********************************************")
             print(" * WARNING:Residual is negative, setting to 0! *")
             print(" ***********************************************")
-            self.residual = 0
+            self.residual = self.residual * 0
 
     def _convert_annual_mean_to_annual(self):
         """
@@ -531,16 +533,8 @@ class IcebergCalving:
                 
                 # Find all icebergs in this element and print their details
                 icebergs_in_element = df[df[18] == element_id]
-                print(f" * Details for element {element_id} ({count} icebergs):")
-                print(" * Row | Col1 | Col2 | Col3 | Col4 | Col5 | Col6 | Col7 | Col8 | Col9 | Col10| Col11| Col12| Col13| Col14| Col15| Col16| Col17| Col18| Col19| Col20")
-                print(" *-----|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------|------")
+                print(f" * Details for element {element_id} ({len(icebergs_in_element)} icebergs)")
                 
-                for idx, (row_idx, iceberg) in enumerate(icebergs_in_element.iterrows(), 1):
-                    # Format the iceberg data for display
-                    row_data = [f"{int(iceberg[i]):5}" if i < len(iceberg) and iceberg[i] != 0 else "    " for i in range(20)]
-                    print(f" *{idx:4} | {' | '.join(row_data)}")
-                
-                print(" ***********************************************")
         else:
             print(" * No multiple icebergs found in same grid element")
 
@@ -786,7 +780,7 @@ class IcebergCalving:
         """
         if scaling_factor == 1:
             # Large icebergs: uniform random distribution
-            return random.randint(1, 366)  # 1-365 inclusive
+            return random.randint(1, 364)  # 1-365 inclusive
         else:
             # Smaller icebergs: austral summer intensification
             # Use von Mises distribution centered on day 15 (mid-January)
@@ -796,7 +790,7 @@ class IcebergCalving:
             # Convert day of year to angle (0 = Jan 1, 2*pi = Dec 31)
             # Center on day 15 (mid-January) = peak austral summer
             mu_day = 15  # Peak calving around mid-January
-            mu_angle = (mu_day / 365.0) * 2 * np.pi
+            mu_angle = (mu_day / 364.0) * 2 * np.pi
             
             # kappa controls how concentrated the distribution is
             # Higher kappa = more concentrated around summer
@@ -807,10 +801,10 @@ class IcebergCalving:
             angle = vonmises.rvs(kappa, loc=mu_angle)
             
             # Convert angle back to day of year
-            day = int((angle % (2 * np.pi)) / (2 * np.pi) * 365) + 1
+            day = int((angle % (2 * np.pi)) / (2 * np.pi) * 364) + 1
             
             # Ensure day is in valid range
-            day = max(1, min(365, day))
+            day = max(1, min(364, day))
             
             return day
 

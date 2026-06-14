@@ -26,11 +26,11 @@ from icb_apply_distribution_functions import IcebergCalving
 
 # Hardcoded paths
 MESH_DIR = "/work/ab0995/a270186/model_inputs/fesom2/mesh/DARS2cav/"
-FW_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/data/fw.fesom.1600.nc"
-CALVING_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/data/calving_AA.fesom.1600.nc"
+FW_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/data/fw.fesom.1855.nc"
+CALVING_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/data/calving_AA.fesom.1855.nc"
 RESTART_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/output/iceberg.restart.ISM"
 BASIN_FILE = "/home/a/a270186/esm_tools/plugins/basins/basins_antarctica.nc"
-SEED_YEAR = 1600
+SEED_YEAR = 1855
 OUTPUT_DIR = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/output/test/"
 
 
