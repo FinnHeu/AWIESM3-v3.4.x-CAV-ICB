@@ -196,5 +196,3 @@ def preserve_iceberg_restart(config):
         print(f"* File copied successfully")
     else:
         print(f"\n*---> No iceberg.restart.ISM file found, skipping preservation")
-    
-    return config

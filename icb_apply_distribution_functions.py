@@ -1111,10 +1111,28 @@ class IcebergCalving:
                                 r2 = r2 * (upper_bound - lower_bound) + lower_bound
                                 #https://math.stackexchange.com/questions/18686/uniform-random-point-in-triangle
                                 try:
-                                    lon = (1-np.sqrt(r1))*lon1 + (np.sqrt(r1)*(1-r2))*lon2 + (r2*np.sqrt(r1))*lon3
+                                    # Handle dateline crossing: if triangle straddles 180°/-180°, shift to 0-360 range
+                                    lons = [lon1, lon2, lon3]
+                                    if max(lons) - min(lons) > 180:
+                                        # Triangle crosses dateline, shift negative lons to positive
+                                        lon1_adj = lon1 + 360 if lon1 < 0 else lon1
+                                        lon2_adj = lon2 + 360 if lon2 < 0 else lon2
+                                        lon3_adj = lon3 + 360 if lon3 < 0 else lon3
+                                        lon = (1-np.sqrt(r1))*lon1_adj + (np.sqrt(r1)*(1-r2))*lon2_adj + (r2*np.sqrt(r1))*lon3_adj
+                                        # Normalize back to -180 to 180
+                                        if lon > 180:
+                                            lon = lon - 360
+                                    else:
+                                        lon = (1-np.sqrt(r1))*lon1 + (np.sqrt(r1)*(1-r2))*lon2 + (r2*np.sqrt(r1))*lon3
                                     lat = (1-np.sqrt(r1))*lat1 + (np.sqrt(r1)*(1-r2))*lat2 + (r2*np.sqrt(r1))*lat3
                                 except:
                                     continue
+                                
+                                # Check if position seems to be on Antarctic continent (lat < -85 is suspicious)
+                                if lat < -85:
+                                    print(f" * WARNING: Iceberg at suspicious location: lon={lon:.2f}, lat={lat:.2f}, felem={felem}")
+                                    print(f"   Element nodes: {nod1}, {nod2}, {nod3}")
+                                    print(f"   Node coords: ({lon1:.2f},{lat1:.2f}), ({lon2:.2f},{lat2:.2f}), ({lon3:.2f},{lat3:.2f})")
                             
                                 # Generate calving day based on scaling factor
                                 calving_day = self._generate_calving_day(ib_elem.scaling)

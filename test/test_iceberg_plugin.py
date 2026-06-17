@@ -28,7 +28,7 @@ from icb_apply_distribution_functions import IcebergCalving
 MESH_DIR = "/work/ab0995/a270186/model_inputs/fesom2/mesh/DARS2cav/"
 FW_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/data/fw.fesom.1855.nc"
 CALVING_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/data/calving_AA.fesom.1855.nc"
-RESTART_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/output/iceberg.restart.ISM"
+RESTART_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/output/test/iceberg.restart.ISM"
 BASIN_FILE = "/home/a/a270186/esm_tools/plugins/basins/basins_antarctica.nc"
 SEED_YEAR = 1855
 OUTPUT_DIR = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/output/test/"
@@ -81,10 +81,10 @@ def run_iceberg_test(output_dir):
         icb_path=output_dir,
         latest_restart_file=RESTART_FILE,
         abg=[50, 15, -90],
-        scaling_factor=[100, 50, 25, 1, 1, 1],
-        seed=1000,
+        scaling_factor=[50, 15, 5, 1, 1, 1],
+        seed=SEED_YEAR,
         bcavities=True,
-        ibareamax=100, #km2
+        ibareamax=50, #km2
         domain="SH",
         basin_file=BASIN_FILE,
         fw_file=FW_FILE,
