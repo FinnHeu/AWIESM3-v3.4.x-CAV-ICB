@@ -31,7 +31,8 @@ class IcebergCalving:
                 domain="SH",
                 basin_file=None,               # basins file (basins_antarctica.nc)
                 fw_file=None,                  # fesom freshwater flux file to compute cavity subshelf melt
-                calving_file=None              # fesom Antarctic calving file (calving_AA.<year>.nc)
+                calving_file=None,             # fesom Antarctic calving file (calving_AA.<year>.nc)
+                exclude_occupied_elements=True # exclude elements already hosting icebergs from seeding
                 ):
         # set seed for random number generation
         random.seed(seed)
@@ -71,6 +72,16 @@ class IcebergCalving:
 
         self.domain    = domain
         self.bcavities = bcavities
+        self.exclude_occupied_elements = exclude_occupied_elements
+        
+        if not self.exclude_occupied_elements:
+            print(" ")
+            print(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            print(" !! WARNING: exclude_occupied_elements is DISABLED                    !!")
+            print(" !! New icebergs may be seeded in elements already hosting icebergs!  !!")
+            print(" !! This may cause issues with FESOM's cell_saturation constraint.   !!")
+            print(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            print(" ")
         
     
         # Read basins file first (needed for weight distribution)
@@ -112,7 +123,7 @@ class IcebergCalving:
         
         if self.bcavities:
             # New approach: weights based on calving front element counts (proxy for calving front length)
-            print(f" * total ice volume flux: {self.total_calving_flux.values * 1e-9:.2f} km3/year (ice)")
+            print(f" * total ice volume flux: {self.total_calving_flux * 1e-9:.2f} km3/year (ice)")
             
             # Create empty df_agg first
             self.df_agg = pd.DataFrame(index=self.basin_ids)
@@ -137,7 +148,7 @@ class IcebergCalving:
             # Calculate per-basin discharge based on weights
             self.basin_discharge = {}
             for i, basin_id in enumerate(self.basin_ids):
-                self.basin_discharge[basin_id] = self.total_calving_flux.values * self.basin_weights[i]
+                self.basin_discharge[basin_id] = self.total_calving_flux * self.basin_weights[i]
             
             # Update df_agg with discharge values
             self.df_agg["disch"] = [self.basin_discharge[bid] for bid in self.basin_ids]
@@ -314,11 +325,11 @@ class IcebergCalving:
             days_in_year = 366
         else:
             days_in_year = 365
-        self.residual_annual = self.residual * days_in_year * 86400
+        self.residual_annual = (self.residual * days_in_year * 86400).values
 
         print(f" * Total annual calving flux: {self.total_calving_basin_66.values * days_in_year * 86400 * 1e-9} Gt/y")
         print(f" * Total annual subshelf melt flux: {self.total_fw_cavity.values * days_in_year * 86400 * 1e-9} Gt/y")
-        print(f" * Total annual residual iceberg flux: {self.residual_annual.values} m3/y (water) or {self.residual_annual.values * 1e-9} Gt/y")
+        print(f" * Total annual residual iceberg flux: {self.residual_annual} m3/y (water) or {self.residual_annual * 1e-9} Gt/y")
 
 
     def _convert_water_volume_to_ice_volume(self):
@@ -327,8 +338,8 @@ class IcebergCalving:
         """
         print(" \n*---> Converting water volume to ice volume")
         self.total_calving_flux = self.residual_annual * (self.rho_water / self.rho_ice)
-        print(f" * Total iceberg flux <before> conversion to ice volume: {self.residual_annual.values} m3/y (water) or {self.residual_annual.values * 1e-9} Gt/y")
-        print(f" * Total iceberg flux <after> conversion to ice volume: {self.total_calving_flux.values} m3/y (ice)")
+        print(f" * Total iceberg flux <before> conversion to ice volume: {self.residual_annual} m3/y (water) or {self.residual_annual * 1e-9} Gt/y")
+        print(f" * Total iceberg flux <after> conversion to ice volume: {self.total_calving_flux} m3/y (ice)")
 
     def _distribute_by_basin_weights(self):
         """
@@ -347,7 +358,7 @@ class IcebergCalving:
         
         print(f" * Number of basins: {self.n_basins}")
         print(f" * Basin IDs: {self.basin_ids}")
-        print(f" * Total iceberg flux: {self.total_calving_flux.values * 1e-9:.2f} km3/y (ice)") 
+        print(f" * Total iceberg flux: {self.total_calving_flux * 1e-9:.2f} km3/y (ice)") 
         
     def _get_fesom_coords(self):
             """
@@ -780,7 +791,7 @@ class IcebergCalving:
         """
         if scaling_factor == 1:
             # Large icebergs: uniform random distribution
-            return random.randint(1, 364)  # 1-365 inclusive
+            return random.randint(0, 364)  # 1-365 inclusive
         else:
             # Smaller icebergs: austral summer intensification
             # Use von Mises distribution centered on day 15 (mid-January)
@@ -1064,8 +1075,11 @@ class IcebergCalving:
                     felems = list(set(felems))
 
                     ##############################################################
-                    # exclude coastal nodes (and full cells)
-                    elems_to_drop = list(self.full_elems)  # Copy to avoid modifying original
+                    # exclude coastal nodes (and optionally full cells)
+                    if self.exclude_occupied_elements:
+                        elems_to_drop = list(self.full_elems)  # Copy to avoid modifying original
+                    else:
+                        elems_to_drop = []  # Don't exclude occupied elements
                 
                     for felem in felems:
                         nodes = self.elem2d.loc[felem].values
@@ -1180,7 +1194,12 @@ class IcebergCalving:
             
             # Verify no new iceberg is seeded in an already occupied element
             print("\n *---> Verify iceberg locations against restart")
-            if hasattr(self, 'full_elems') and len(self.full_elems) > 0:
+            if not self.exclude_occupied_elements:
+                print(" * SKIPPED: exclude_occupied_elements is disabled")
+                print(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                print(" !! WARNING: Verification skipped - occupied element exclusion disabled !!")
+                print(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+            elif hasattr(self, 'full_elems') and len(self.full_elems) > 0:
                 new_elems = set(ib_elems_loc.felem.values)
                 occupied_elems = set(self.full_elems)
                 conflicts = new_elems.intersection(occupied_elems)
@@ -1221,7 +1240,7 @@ class IcebergCalving:
             has_calving_stats = False
         
         # Total flux
-        total_flux_km3 = self.total_calving_flux.values * 1e-9
+        total_flux_km3 = self.total_calving_flux * 1e-9
         print(f"\n  TOTAL ICEBERG FLUX:")
         print(f"    From calving calculation:  {total_flux_km3:.2f} km³/year (ice)")
         print(f"    Total icebergs generated:  {sum(iceberg_counts_per_basin.values())}")
