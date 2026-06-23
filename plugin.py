@@ -65,6 +65,7 @@ def update_icebergs(config):
     bcavities = config["fesom"].get("use_cav", True)
     icb_path = config["general"]["thisrun_work_dir"]
     ibareamax = config["fesom"].get("ibareamax", 400)
+    exclude_occupied_elements = config["fesom"].get("exclude_occupied_elements", True)
     
     # Get previous year for reading previous year's output files
     prev_date = config["general"]["prev_date"]
@@ -86,6 +87,7 @@ def update_icebergs(config):
     print(f" * bcavities: {bcavities}")
     print(f" * icb_path: {icb_path}")
     print(f" * ibareamax: {ibareamax}")
+    print(f" * exclude_occupied_elements: {exclude_occupied_elements}")
     print(f" * prev_year: {prev_year}")
     print(f" * fw_file: {fw_file}")
     print(f" * calving_file: {calving_file}")
@@ -113,7 +115,8 @@ def update_icebergs(config):
                         basin_file=basin_file,               # basin file ?needed?
                         #calving_basin_id_file=fesom_basin_id_file,       # file containing the basin IDs for solid runoff/enthalpy on fesom grid
                         fw_file=fw_file,                  # fesom freshwater flux file
-                        calving_file=calving_file                 # 
+                        calving_file=calving_file,
+                        exclude_occupied_elements=exclude_occupied_elements
     )
     ib.create_dataframe()
     ib._icb_generator(fmode="w")
@@ -196,5 +199,3 @@ def preserve_iceberg_restart(config):
         print(f"* File copied successfully")
     else:
         print(f"\n*---> No iceberg.restart.ISM file found, skipping preservation")
-    
-    return config
