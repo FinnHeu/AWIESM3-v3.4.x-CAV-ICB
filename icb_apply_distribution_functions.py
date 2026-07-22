@@ -767,31 +767,31 @@ class IcebergCalving:
         self.df_agg["elems"] = elem_tmp
         self.df_agg["neigh."] = neigh_tmp
 
-    def _generate_calving_day(self, scaling_factor):
+    def _generate_calving_day(self, area):
         """
-        Generate a calving day (1-365) for an iceberg based on its scaling factor.
+        Generate a calving day (1-365) for an iceberg based on its area.
         
-        For large icebergs (scaling_factor == 1): 
+        For large icebergs (area >= 10 km2): 
             Uniform random distribution across all days.
             
-        For smaller icebergs (scaling_factor > 1):
+        For smaller icebergs (area < 10 km2):
             Austral summer-weighted distribution using von Mises distribution
             centered on mid-January (day ~15), with higher probability during
             December-February (austral summer).
         
         Parameters
         ----------
-        scaling_factor : int
-            The scaling factor for the iceberg (1 = large, >1 = smaller)
+        area : float
+            The area of the iceberg in km2
             
         Returns
         -------
         int
             Calving day of year (1-365)
         """
-        if scaling_factor == 1:
-            # Large icebergs: uniform random distribution
-            return random.randint(0, 364)  # 1-365 inclusive
+        if area >= 10:
+            # Large icebergs (>= 10 km2): uniform random distribution
+            return random.randint(0, 364)  # 0-364 inclusive
         else:
             # Smaller icebergs: austral summer intensification
             # Use von Mises distribution centered on day 15 (mid-January)
@@ -1148,8 +1148,9 @@ class IcebergCalving:
                                     print(f"   Element nodes: {nod1}, {nod2}, {nod3}")
                                     print(f"   Node coords: ({lon1:.2f},{lat1:.2f}), ({lon2:.2f},{lat2:.2f}), ({lon3:.2f},{lat3:.2f})")
                             
-                                # Generate calving day based on scaling factor
-                                calving_day = self._generate_calving_day(ib_elem.scaling)
+                                # Generate calving day based on iceberg area
+                                iceberg_area = ib_elem.length ** 2  # area in km2
+                                calving_day = self._generate_calving_day(iceberg_area)
                                 
                                 if ib_elems_loc.empty:
                                     ib_elems_loc = pd.DataFrame({"length": [ib_elem.length], 
