@@ -20,20 +20,10 @@ The plugin distributes this mass flux across the calving fronts of the Antarctic
 
 ## Calving Day Seasonal Cycle
 
-The plugin assigns a calving day (1-365) to each iceberg, controlling when FESOM starts processing it during the simulation year. The distribution depends on iceberg size class:
+Each iceberg is assigned a calving day, which controls when FESOM starts processing it during the simulation year. The calving day depends on the iceberg size:
 
-### Large icebergs (scaling factor = 1)
-- **Uniform random distribution** across all days (1-365)
-- Applies to the 3 largest size classes
-- Represents year-round calving of large tabular icebergs
-
-### Small icebergs (scaling factor > 1)
-- **Austral summer-weighted distribution** using von Mises (circular normal) distribution
-- Centered on day 15 (mid-January, peak austral summer) with concentration parameter κ=1.5
-- Results in ~60% of small icebergs calving during austral summer (Nov-Feb)
-- Represents the observed seasonal intensification of smaller calving events
-
-The von Mises distribution ensures smooth wrap-around at year boundaries, making it ideal for cyclic day-of-year data.
+- **Small icebergs** (area < 10 km²) have a seasonal cycle. Calving days are drawn from a von Mises distribution centred on mid-January, so they cluster in austral summer.
+- **Large icebergs** (area >= 10 km²) have no seasonal cycle. Calving days are drawn uniformly over the year.
 
 ## Installation
 
