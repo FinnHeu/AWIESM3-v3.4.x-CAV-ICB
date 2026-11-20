@@ -47,7 +47,7 @@ class IcebergCalving:
         self.mesh_path = mesh_path
         self.mesh_diag_file = f"{self.mesh_path}fesom.mesh.diag.nc"
         self.mesh_diag = xr.open_dataset(self.mesh_diag_file)
-        self.node_area = self.mesh_diag['nod_area'].max(dim='nz')
+        self.node_area = get_first_active_layer_area(self.mesh_diag)
         self.nod2d_file = os.path.join(mesh_path, "nod2d.out")
         self.elem2d_file = os.path.join(mesh_path, "elem2d.out")
         self.cavity_elvls_file = os.path.join(mesh_path, "cavity_elvls.out")
@@ -68,6 +68,8 @@ class IcebergCalving:
         self.depth = self.thick * 7/8
         self.height = self.thick - self.depth
         self.seed = seed
+
+        
 
 
         self.domain    = domain
@@ -1359,6 +1361,23 @@ def seconds_per_month(years):
             secs.append((end - start).total_seconds())
     
     return np.array(secs)
+
+def get_first_active_layer_area(mesh_diag):
+    """
+    Returns the horizontal area of the first active (non-zero) layer of each node.
+    For nodes below an ice shelf this is the cavity/ocean interface layer, which
+    can be smaller than the maximum area over depth.
+
+    Parameters:
+        mesh_diag (xarray.Dataset): Dataset containing 'nod_area' with dims (nz, nod2).
+    Returns:
+        xarray.DataArray: Area of the first active layer for each node (dims: nod2).
+                          Nodes without any active layer get zero area.
+    """
+    area = mesh_diag.nod_area
+    active = area > 0
+    first_active = active & (active.cumsum(dim='nz') == 1)
+    return area.where(first_active, 0).sum(dim='nz')
 
 
 
