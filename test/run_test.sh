@@ -10,10 +10,8 @@
 # 3. Activates the esm_tools conda environment
 # 4. Runs the test
 
-set -e  # Exit on error
-
 echo "========================================"
-echo "AWI-ESM-v3.4.1-CAV-ICB Test Runner"
+echo "AWI-ESM-v3.4.X-CAV-ICB Test Runner"
 echo "========================================"
 
 # Get the directory where this script is located
@@ -27,26 +25,31 @@ elif [ -f "$HOME/.bash_profile" ]; then
     source "$HOME/.bash_profile"
 fi
 
+set -e  # Exit on error
+
 # Initialize conda for bash shell
-echo "* Initializing conda..."
-if command -v conda &> /dev/null; then
-    # Conda is in PATH, ensure it's initialized
-    eval "$(conda shell.bash hook)"
-elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
-    source "$HOME/anaconda3/etc/profile.d/conda.sh"
-elif [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
-    source "$HOME/miniconda3/etc/profile.d/conda.sh"
-elif [ -f "/sw/spack-levante/miniconda3-24.3.0-0/etc/profile.d/conda.sh" ]; then
-    # Levante cluster specific
-    source "/sw/spack-levante/miniconda3-24.3.0-0/etc/profile.d/conda.sh"
-else
-    echo "WARNING: Could not find conda initialization script"
-    echo "Attempting to proceed anyway..."
-fi
+#echo "* Initializing conda..."
+#if command -v conda &> /dev/null; then
+#    # Conda is in PATH, ensure it's initialized
+#    eval "$(conda shell.bash hook)"
+#elif [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
+#    source "$HOME/anaconda3/etc/profile.d/conda.sh"
+#elif [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+#    source "$HOME/miniconda3/etc/profile.d/conda.sh"
+#elif [ -f "/sw/spack-levante/miniconda3-24.3.0-0/etc/profile.d/conda.sh" ]; then
+#    # Levante cluster specific
+#    source "/sw/spack-levante/miniconda3-24.3.0-0/etc/profile.d/conda.sh"
+#else
+#    echo "WARNING: Could not find conda initialization script"
+#    echo "Attempting to proceed anyway..."
+#fi
 
 # Activate esm_tools conda environment
 echo "* Activating esm_tools conda environment..."
-conda activate esm_tools
+eval "$(conda shell.bash hook)"
+conda activate esm_tools-cav_icb
+
+#conda activate esm_tools
 
 # Verify activation
 echo "* Python version: $(python --version)"
