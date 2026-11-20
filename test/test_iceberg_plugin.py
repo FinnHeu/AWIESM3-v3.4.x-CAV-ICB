@@ -22,15 +22,17 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from icb_apply_distribution_functions import IcebergCalving
+from plugin import apply_iceberg_calving_to_namelists
 
 
 # Hardcoded paths
 MESH_DIR = "/work/ab0995/a270186/model_inputs/fesom2/mesh/DARS2cav/"
-FW_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/data/fw.fesom.1855.nc"
-CALVING_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/data/calving_AA.fesom.1855.nc"
-RESTART_FILE = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/output/test/iceberg.restart.ISM"
+FW_FILE = "/work/ba1550/a270186/simulations/awiesm3-v3.4.2-CAV-ICB/production/CAV-ICB-PICTRL-FLUX-ON/outdata/fesom/fw.fesom.1924.nc"
+CALVING_FILE = "/work/ba1550/a270186/simulations/awiesm3-v3.4.2-CAV-ICB/production/CAV-ICB-PICTRL-FLUX-ON/outdata/fesom/calving_AA.fesom.1924.nc"
+RESTART_FILE = "/work/ba1550/a270186/simulations/awiesm3-v3.4.2-CAV-ICB/production/CAV-ICB-PICTRL-FLUX-ON/restart/fesom/iceberg.restart.ISM"
 BASIN_FILE = "/home/a/a270186/esm_tools/plugins/basins/basins_antarctica.nc"
-SEED_YEAR = 1855
+SEED_YEAR = 1924
+NAMELIST_CONFIG = "/work/ba1550/a270186/simulations/awiesm3-v3.4.2-CAV-ICB/production/CAV-ICB-PICTRL-FLUX-ON/config/fesom/namelist.config"
 OUTPUT_DIR = "/home/a/a270186/esm_tools/plugins/AWI-ESM-v3.4.x-CAV-ICB/test/output/test/"
 
 
@@ -81,10 +83,10 @@ def run_iceberg_test(output_dir):
         icb_path=output_dir,
         latest_restart_file=RESTART_FILE,
         abg=[50, 15, -90],
-        scaling_factor=[50, 15, 5, 1, 1, 1],
+        scaling_factor=[250, 100, 30, 2, 1, 1],
         seed=SEED_YEAR,
         bcavities=True,
-        ibareamax=50, #km2
+        ibareamax=100, #km2
         domain="SH",
         basin_file=BASIN_FILE,
         fw_file=FW_FILE,
@@ -126,6 +128,13 @@ def run_iceberg_test(output_dir):
     
     print(f"\n* Successfully generated {len(generated_files)}/{len(expected_files)} iceberg files")
     print(f"* Total icebergs generated: {total_icebergs}")
+
+    # Update a copy of the namelist with ib_num = new + old icebergs (mirrors the work dir of a run)
+    print("\n* Updating namelist.config copy...")
+    shutil.copyfile(NAMELIST_CONFIG, os.path.join(output_dir, "namelist.config"))
+    shutil.copyfile(RESTART_FILE, os.path.join(output_dir, "iceberg.restart.ISM"))
+    config = {"fesom": {"with_icb": True}, "general": {"run_number": 2, "thisrun_work_dir": output_dir}}
+    apply_iceberg_calving_to_namelists(config)
     
     return len(generated_files) == len(expected_files)
 
